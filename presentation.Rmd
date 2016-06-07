@@ -1,0 +1,176 @@
+---
+title: "Tools for Data Manipulation"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+## Motivation
+
+  - `dplyr` and `data.table`
+  - syntax is a plus
+      - rewrite everything after running `R CMD check`
+  - performance
+  - integration with custom class definitions
+      - not supported
+  - improve and integrate the definition of anonymous functions (see for example `rlist` and recently `purrr`)
+
+
+## The 'Solution'
+
+  - extensive use of the formula class
+  - pro: 
+      - `R CMD check` friendly
+      - not relying on non-standard-evaluation: normal dispatch and argument passing possible
+  - contra:
+      - using formulas is a matter of preference
+
+
+## Aim of the Package
+
+  - don't loose the performance improvements from `dplyr` or `data.table`
+  - reuse as much as possible
+  - be generic
+  - respect custom classes
+  - abstract (my) typical (data manipulation) patterns
+
+
+## Design Issues
+
+  - `dplyr`: functions do one thing only!
+      - `slice` and `filter`
+  - `data.table`: let's write one function only!
+      - `[.data.table` has about 1500 lines of code
+      - 400 open issues on github
+  - `dat`: I don't believe in extremes
+      - is somewhere in between and uses methods
+      - preserves the class (S3 + S4) and uses (mostly) dplyr in the background
+
+
+## Examples: rows
+
+```{r echo=TRUE}
+data("airquality")
+suppressPackageStartupMessages(library("dat"))
+airQuality <- as.DataFrame(airquality)
+airQuality[~Day < 7, ]
+```
+
+
+## Examples: rows
+
+```{r echo=TRUE}
+suppressPackageStartupMessages(library("data.table"))
+as.data.table(airquality) %>% mutar(~Day < 7)
+```
+
+
+## Examples: cols
+
+```{r eval = FALSE, echo = TRUE}
+airQuality[is.numeric]
+# airquality(sapply(airquality, is.numeric))
+
+as.data.table(airquality) %>% mutar("Ozone:Wind") # remeber dplyr::select
+
+mutar(airquality, "^Wi") # regex is triggered by '^'
+airQuality["^Wi"]
+# airquality[grepl("^Wi", names(airquality))]
+
+airQuality[1] # error - no positional matching!
+
+# Yes, base R syntax is otherwise okay:
+ind <- 1:5
+airQuality[ind, "Wind"]
+```
+
+
+## Examples: mutate + summary
+
+```{r echo = TRUE, eval = FALSE}
+airquality %>%
+  mutar(
+    meanWind ~ mean(Wind), 
+    by = "Month"
+  )
+
+airQuality[meanWind ~ mean(Wind), by = "Month"]
+```
+
+- `mutar` can do
+    - row subsetting
+    - col subsetting (charater + logicals, regex, functions)
+    - create new columns using `dplyr::mutate`
+    - data aggregation using `dplyr::summarise` (triggered with `by`)
+    - stops here
+
+
+## Integration of Custom Classes
+
+```{r error=TRUE, echo=TRUE}
+setClass("MyData", contains = "data.table")
+MyData <- function(...) new("MyData", data.table(...))
+dat <- do.call(MyData, airquality)
+dat[1, ] # it is just broken - same for dplyr
+```
+
+
+## `mutar` can do more!
+
+- It is supposed to be used for custom class definitions:
+
+```{r echo=TRUE}
+invisible(setMethod("[", "MyData", mutar))
+dat[1, ]
+dat[1, CopyOfDay ~ Day]
+```
+
+
+## Additional functions
+
+- `map`: as a replcament for `lapply` and `mapply`
+- `flatmap`: instead of `sapply`
+- `replace`: to replace values in a vector
+- `extract`: to extract values from a vector
+
+## Be `data.frame` aware
+
+```{r echo = TRUE}
+ind <- sapply(airquality, is.integer)
+airquality[ind] <- lapply(airquality[ind], function(x) as.character(x + 1))
+map(airquality, f(x) ~ as.integer(x) - 1L, is.character) %>%
+  str
+```
+
+
+## Be `list` aware
+
+```{r}
+l <- list(
+  a = list(name = "Me", age = 29),
+  b = list(name = "You", age = ">30")
+)
+```
+
+```{r echo=TRUE, eval=FALSE}
+l <- list(
+  a = list(name = "Me", age = 29),
+  b = list(name = "You", age = ">30")
+)
+
+lapply(l, function(x) x["name"])
+```
+
+```{r echo=TRUE, eval = FALSE}
+map(l, "name") # use regex or vectors
+```
+
+```{r echo=TRUE, eval = FALSE}
+flatmap(l, "name")
+```
+
+
+## Be paranoid  
