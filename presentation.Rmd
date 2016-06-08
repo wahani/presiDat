@@ -12,6 +12,7 @@ knitr::opts_chunk$set(echo = FALSE)
 
   - `dplyr` and `data.table`
   - syntax is a plus
+      - not with package development
       - rewrite everything after running `R CMD check`
   - performance
   - integration with custom class definitions
@@ -24,7 +25,8 @@ knitr::opts_chunk$set(echo = FALSE)
   - extensive use of the formula class
   - pro: 
       - `R CMD check` friendly
-      - not relying on non-standard-evaluation: normal dispatch and argument passing possible
+      - not relying on non-standard-evaluation: normal dispatch and argument
+      passing possible
   - contra:
       - using formulas is a matter of preference
 
