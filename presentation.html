@@ -145,7 +145,7 @@
 <li><code>dat</code>: I don&#39;t believe in extremes
 
 <ul>
-<li>is somewhere in between and uses methods</li>
+<li>is somewhere in between</li>
 <li>preserves the class (S3 + S4) and uses (mostly) dplyr in the background</li>
 </ul></li>
 </ul>
@@ -176,7 +176,7 @@ airQuality[~Day &lt; 7, ]</pre>
 </article></slide><slide class=''><hgroup><h2>Examples: rows</h2></hgroup><article  id="examples-rows-1">
 
 <pre class = 'prettyprint lang-r'>suppressPackageStartupMessages(library(&quot;data.table&quot;))
-as.data.table(airquality) %&gt;% mutar(~Day &lt; 7)</pre>
+as.data.table(airquality) %&gt;% mutar(~ Day &lt; 7)</pre>
 
 <pre >##     Ozone Solar.R Wind Temp Month Day
 ##  1:    41     190  7.4   67     5   1
@@ -243,7 +243,7 @@ airQuality[meanWind ~ mean(Wind), by = &quot;Month&quot;]</pre>
 
 <ul>
 <li>row subsetting</li>
-<li>col subsetting (charater + logicals, regex, functions)</li>
+<li>col subsetting (character + logical, regex, functions)</li>
 <li>create new columns using <code>dplyr::mutate</code></li>
 <li>data aggregation using <code>dplyr::summarise</code> (triggered with <code>by</code>)</li>
 <li>stops here</li>
@@ -261,12 +261,11 @@ dat[1, ] # it is just broken - same for dplyr</pre>
 
 </article></slide><slide class=''><hgroup><h2><code>mutar</code> can do more!</h2></hgroup><article  id="mutar-can-do-more">
 
-<ul>
-<li>It is supposed to be used for custom class definitions:</li>
-</ul>
+<pre class = 'prettyprint lang-r'>setMethod(&quot;[&quot;, &quot;MyData&quot;, mutar)</pre>
 
-<pre class = 'prettyprint lang-r'>invisible(setMethod(&quot;[&quot;, &quot;MyData&quot;, mutar))
-dat[1, ]</pre>
+<pre >## [1] &quot;[&quot;</pre>
+
+<pre class = 'prettyprint lang-r'>dat[1, ]</pre>
 
 <pre >## Object of class &quot;MyData&quot;
 ##    Ozone Solar.R Wind Temp Month Day
@@ -281,7 +280,7 @@ dat[1, ]</pre>
 </article></slide><slide class=''><hgroup><h2>Additional functions</h2></hgroup><article  id="additional-functions">
 
 <ul>
-<li><code>map</code>: as a replcament for <code>lapply</code> and <code>mapply</code></li>
+<li><code>map</code>: as a replacement for <code>lapply</code> and <code>mapply</code></li>
 <li><code>flatmap</code>: instead of <code>sapply</code></li>
 <li><code>replace</code>: to replace values in a vector</li>
 <li><code>extract</code>: to extract values from a vector</li>
@@ -291,7 +290,7 @@ dat[1, ]</pre>
 
 <pre class = 'prettyprint lang-r'>ind &lt;- sapply(airquality, is.integer)
 airquality[ind] &lt;- lapply(airquality[ind], function(x) as.character(x + 1))
-map(airquality, f(x) ~ as.integer(x) - 1L, is.character) %&gt;%
+map(airquality, x ~ as.integer(x) - 1L, is.character) %&gt;%
   str</pre>
 
 <pre >## &#39;data.frame&#39;:    153 obs. of  6 variables:
@@ -305,22 +304,65 @@ map(airquality, f(x) ~ as.integer(x) - 1L, is.character) %&gt;%
 </article></slide><slide class=''><hgroup><h2>Be <code>list</code> aware</h2></hgroup><article  id="be-list-aware">
 
 <pre class = 'prettyprint lang-r'>l &lt;- list(
-  a = list(name = &quot;Me&quot;, age = &quot;old&quot;),
-  b = list(name = &quot;You&quot;, age = &quot;young&quot;)
+  a = list(name = &quot;Me&quot;, age = 29),
+  b = list(name = &quot;You&quot;, age = &quot;&gt;30&quot;)
 )
 
-lapply(l, function(x) x[&quot;name&quot;])</pre>
+lapply(l, function(x) x[&quot;name&quot;])
+map(l, &quot;name&quot;)
+flatmap(l, &quot;name&quot;)</pre>
 
-<pre class = 'prettyprint lang-r'>map(l, &quot;name&quot;)</pre>
+<pre class = 'prettyprint lang-r'>flatmap(l, ~ .$name) # function(.) .$name</pre>
 
-<pre >## $a
-## $a$name
-## [1] &quot;Me&quot;
-## 
-## 
-## $b
-## $b$name
-## [1] &quot;You&quot;</pre></article></slide>
+<pre >##     a     b 
+##  &quot;Me&quot; &quot;You&quot;</pre>
+
+</article></slide><slide class=''><hgroup><h2>Be paranoid</h2></hgroup><article  id="be-paranoid">
+
+<ul>
+<li>add runtime type checks</li>
+</ul>
+
+<pre class = 'prettyprint lang-r'>flatmap(l, numeric : x ~ x$age)</pre>
+
+<pre >## Error in FUN(X[[i]], ...): Function does not return correct type
+##            expected: numeric
+##            observed: character</pre>
+
+<pre class = 'prettyprint lang-r'>flatmap(l, character(1) : x ~ x$name)</pre>
+
+<pre >##     a     b 
+##  &quot;Me&quot; &quot;You&quot;</pre>
+
+</article></slide><slide class=''><hgroup><h2>Be comprehensive</h2></hgroup><article  id="be-comprehensive">
+
+<pre class = 'prettyprint lang-r'>extract(1:20, ~ . %% 2 == 0)</pre>
+
+<pre >##  [1]  2  4  6  8 10 12 14 16 18 20</pre>
+
+<pre class = 'prettyprint lang-r'>replace(1:10, ~ . %% 2 == 0, NA_real_)</pre>
+
+<pre >##  [1]  1 NA  3 NA  5 NA  7 NA  9 NA</pre>
+
+<pre class = 'prettyprint lang-r'>vec &lt;- 1:20
+vec[vec %% 2 == 0]</pre>
+
+<pre >##  [1]  2  4  6  8 10 12 14 16 18 20</pre>
+
+</article></slide><slide class=''><hgroup><h2>Summary</h2></hgroup><article  id="summary">
+
+<ul>
+<li>you can fall back to or integrate <code>dplyr</code> and <code>data.table</code> functions</li>
+<li>syntactic sugar for anonymous functions</li>
+<li>use custom data types:
+
+<ul>
+<li>everything is a method: <code>map</code>, <code>replace</code>, and <code>extract</code></li>
+<li><code>mutar</code> respects the data it operates on (for better or worse)</li>
+</ul></li>
+<li>have <em>pipeable</em> syntax: no replacement functions</li>
+<li>may not replace everything in an interactive data analysis <code>-&gt;</code> it covers almost all use cases for production code</li>
+</ul></article></slide>
 
 
   <slide class="backdrop"></slide>
