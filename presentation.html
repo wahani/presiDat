@@ -34,6 +34,14 @@
 
       // Author information
       presenters: [
+            {
+        name:  'Sebastian Warnholz' ,
+        company: 'INWT-Statistics',
+        gplus: '',
+        twitter: '',
+        www: '',
+        github: ''
+      },
             ]
     };
   </script>
@@ -86,20 +94,24 @@
 <slide class=''><hgroup><h2>Motivation</h2></hgroup><article  id="motivation">
 
 <ul>
-<li><code>dplyr</code> and <code>data.table</code></li>
-<li>syntax is a plus
+<li><code>dplyr</code> and <code>data.table</code>
+
+<ul>
+<li>performance</li>
+<li>idiomatic syntax</li>
+</ul></li>
+<li>syntax may help, but
 
 <ul>
 <li>not with package development</li>
-<li>rewrite everything after running <code>R CMD check</code></li>
+<li>you rewrite everything after running <code>R CMD check</code></li>
 </ul></li>
-<li>performance</li>
 <li>integration with custom class definitions
 
 <ul>
-<li>not supported</li>
+<li>is not supported</li>
 </ul></li>
-<li>improve and integrate the definition of anonymous functions (see for example <code>rlist</code> and recently <code>purrr</code>)</li>
+<li>syntactic sugar for anonymous functions (see for example <code>rlist</code> and recently <code>purrr</code>)</li>
 </ul>
 
 </article></slide><slide class=''><hgroup><h2>The &#39;Solution&#39;</h2></hgroup><article  id="the-solution">
@@ -116,6 +128,7 @@
 
 <ul>
 <li>using formulas is a matter of preference</li>
+<li>unexplored so far</li>
 </ul></li>
 </ul>
 
@@ -136,18 +149,20 @@
 
 <ul>
 <li><code>slice</code> and <code>filter</code></li>
+<li>manual dispatch on the second argument</li>
 </ul></li>
 <li><code>data.table</code>: let&#39;s write one function only!
 
 <ul>
 <li><code>[.data.table</code> has about 1500 lines of code</li>
-<li>400 open issues on github</li>
+<li>you use <code>dat[]</code> as the interface to all features</li>
 </ul></li>
-<li><code>dat</code>: I don&#39;t believe in extremes
+<li><code>dat</code>: relies on method dispatch
 
 <ul>
 <li>is somewhere in between</li>
-<li>preserves the class (S3 + S4) and uses (mostly) dplyr in the background</li>
+<li>preserves the class (S3 + S4) but uses (mostly) <code>dplyr</code> in the background</li>
+<li><code>dplyr</code> now includes a link to <code>data.table</code></li>
 </ul></li>
 </ul>
 
@@ -215,7 +230,7 @@ as.data.table(airquality) %&gt;% mutar(~ Day &lt; 7)</pre>
 </article></slide><slide class=''><hgroup><h2>Examples: cols</h2></hgroup><article  id="examples-cols">
 
 <pre class = 'prettyprint lang-r'>airQuality[is.numeric]
-# airquality(sapply(airquality, is.numeric))
+# airquality[sapply(airquality, is.numeric)]
 
 as.data.table(airquality) %&gt;% mutar(&quot;Ozone:Wind&quot;) # remeber dplyr::select
 
@@ -278,19 +293,26 @@ dat[1, ] # it is just broken - same for dplyr</pre>
 ##    Ozone Solar.R Wind Temp Month Day CopyOfDay
 ## 1:    41     190  7.4   67     5   1         1</pre>
 
-</article></slide><slide class=''><hgroup><h2>Additional functions</h2></hgroup><article  id="additional-functions">
+</article></slide><slide class=''><hgroup><h2>Additional Functions</h2></hgroup><article  id="additional-functions">
 
 <ul>
 <li><code>map</code>: as a replacement for <code>lapply</code> and <code>mapply</code></li>
 <li><code>flatmap</code>: instead of <code>sapply</code></li>
 <li><code>replace</code>: to replace values in a vector</li>
-<li><code>extract</code>: to extract values from a vector</li>
+<li><p><code>extract</code>: to extract values from a vector</p></li>
+<li>these functions introduce syntactic sugar for anonymous functions</li>
+<li>they are generic functions and can be extended for new data types</li>
+<li><p>they have special awareness of <code>data.frame</code>s and <code>list</code>s</p></li>
 </ul>
 
 </article></slide><slide class=''><hgroup><h2>Be <code>data.frame</code> aware</h2></hgroup><article  id="be-data.frame-aware">
 
 <pre class = 'prettyprint lang-r'>ind &lt;- sapply(airquality, is.integer)
-airquality[ind] &lt;- lapply(airquality[ind], function(x) as.character(x + 1))
+airquality[ind] &lt;- lapply(
+  airquality[ind], 
+  function(x) as.character(x + 1)
+)
+
 map(airquality, x ~ as.integer(x) - 1L, is.character) %&gt;%
   str</pre>
 
@@ -350,6 +372,30 @@ vec[vec %% 2 == 0]</pre>
 
 <pre >##  [1]  2  4  6  8 10 12 14 16 18 20</pre>
 
+</article></slide><slide class=''><hgroup><h2>Be comprehensive</h2></hgroup><article  id="be-comprehensive-1">
+
+<pre class = 'prettyprint lang-r'># non pipepable state of the art:
+l &lt;- list(x = 1, x1 = 2)
+l$x &lt;- NULL
+l[grepl(&quot;^x&quot;, names(l))] &lt;- NULL
+l[sapply(l, is.numeric)] &lt;- NULL
+l[sapply(l, function(el) any(el == 1))] &lt;- NULL
+
+# suggestion:
+replace(l, &quot;x&quot;, NULL)
+replace(l, &quot;^x&quot;, NULL)
+replace(l, is.numeric, NULL)
+replace(l, el ~ any(el == 1), NULL)</pre>
+
+<ul>
+<li>here I need tp parse in my head:
+
+<ul>
+<li><code>$</code>, <code>[</code>, <code>&lt;-</code>, <code>names</code>, <code>sapply</code>, <code>grepl</code></li>
+<li>vs. <code>replace</code></li>
+</ul></li>
+</ul>
+
 </article></slide><slide class=''><hgroup><h2>Summary</h2></hgroup><article  id="summary">
 
 <ul>
@@ -362,7 +408,8 @@ vec[vec %% 2 == 0]</pre>
 <li><code>mutar</code> respects the data it operates on (for better or worse)</li>
 </ul></li>
 <li>have <em>pipeable</em> syntax: no replacement functions</li>
-<li>may not replace everything in an interactive data analysis <code>-&gt;</code> it covers almost all use cases for production code</li>
+<li>may not replace everything in an interactive data analysis <code>-&gt;</code> it covers almost all (my) use cases for production code</li>
+<li>general <em>split-apply-combine</em> idiom is implemented as flatmap: I only talked about the good parts</li>
 </ul></article></slide>
 
 

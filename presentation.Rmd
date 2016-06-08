@@ -1,6 +1,10 @@
 ---
 title: "Tools for Data Manipulation"
-output: ioslides_presentation
+author: 
+  name: Sebastian Warnholz
+  company: INWT-Statistics
+output: 
+  ioslides_presentation
 ---
 
 ```{r setup, include=FALSE}
@@ -11,13 +15,15 @@ knitr::opts_chunk$set(echo = FALSE)
 ## Motivation
 
   - `dplyr` and `data.table`
-  - syntax is a plus
+      - performance
+      - idiomatic syntax
+  - syntax may help, but
       - not with package development
-      - rewrite everything after running `R CMD check`
-  - performance
+      - you rewrite everything after running `R CMD check`
   - integration with custom class definitions
-      - not supported
-  - improve and integrate the definition of anonymous functions (see for example `rlist` and recently `purrr`)
+      - is not supported
+  - syntactic sugar for anonymous functions (see for example `rlist` and
+  recently `purrr`)
 
 
 ## The 'Solution'
@@ -29,6 +35,7 @@ knitr::opts_chunk$set(echo = FALSE)
       passing possible
   - contra:
       - using formulas is a matter of preference
+      - unexplored so far
 
 
 ## Aim of the Package
@@ -44,12 +51,14 @@ knitr::opts_chunk$set(echo = FALSE)
 
   - `dplyr`: functions do one thing only!
       - `slice` and `filter`
+      - manual dispatch on the second argument
   - `data.table`: let's write one function only!
       - `[.data.table` has about 1500 lines of code
-      - 400 open issues on github
-  - `dat`: I don't believe in extremes
+      - you use `dat[]` as the interface to all features 
+  - `dat`: relies on method dispatch
       - is somewhere in between
-      - preserves the class (S3 + S4) and uses (mostly) dplyr in the background
+      - preserves the class (S3 + S4) but uses (mostly) `dplyr` in the background
+      - `dplyr` now includes a link to `data.table`
 
 
 ## Examples: rows
@@ -74,7 +83,7 @@ as.data.table(airquality) %>% mutar(~ Day < 7)
 
 ```{r eval = FALSE, echo = TRUE}
 airQuality[is.numeric]
-# airquality(sapply(airquality, is.numeric))
+# airquality[sapply(airquality, is.numeric)]
 
 as.data.table(airquality) %>% mutar("Ozone:Wind") # remeber dplyr::select
 
@@ -129,7 +138,7 @@ dat[1, CopyOfDay ~ Day]
 ```
 
 
-## Additional functions
+## Additional Functions
 
 - `map`: as a replacement for `lapply` and `mapply`
 - `flatmap`: instead of `sapply`
@@ -137,11 +146,20 @@ dat[1, CopyOfDay ~ Day]
 - `extract`: to extract values from a vector
 
 
+- these functions introduce syntactic sugar for anonymous functions 
+- they are generic functions and can be extended for new data types
+- they have special awareness of `data.frame`s and `list`s
+
+
 ## Be `data.frame` aware
 
 ```{r echo = TRUE}
 ind <- sapply(airquality, is.integer)
-airquality[ind] <- lapply(airquality[ind], function(x) as.character(x + 1))
+airquality[ind] <- lapply(
+  airquality[ind], 
+  function(x) as.character(x + 1)
+)
+
 map(airquality, x ~ as.integer(x) - 1L, is.character) %>%
   str
 ```
@@ -193,6 +211,28 @@ vec[vec %% 2 == 0]
 ```
 
 
+## Be comprehensive
+
+```{r eval = FALSE, echo = TRUE}
+# non pipepable state of the art:
+l <- list(x = 1, x1 = 2)
+l$x <- NULL
+l[grepl("^x", names(l))] <- NULL
+l[sapply(l, is.numeric)] <- NULL
+l[sapply(l, function(el) any(el == 1))] <- NULL
+
+# suggestion:
+replace(l, "x", NULL)
+replace(l, "^x", NULL)
+replace(l, is.numeric, NULL)
+replace(l, el ~ any(el == 1), NULL)
+```
+
+- here I need tp parse in my head:
+    - `$`, `[`, `<-`, `names`, `sapply`, `grepl`
+    - vs. `replace`
+
+
 ## Summary
 
 - you can fall back to or integrate `dplyr` and `data.table` functions
@@ -202,5 +242,7 @@ vec[vec %% 2 == 0]
     - `mutar` respects the data it operates on (for better or worse)
 - have *pipeable* syntax: no replacement functions
 - may not replace everything in an interactive data analysis `->` it covers
-almost all use cases for production code
+almost all (my) use cases for production code
+- general *split-apply-combine* idiom is implemented as flatmap: I only talked
+about the good parts
 
